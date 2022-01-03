@@ -1,15 +1,9 @@
 import bcrypt from 'bcrypt'
-import jsonwebtoken from 'jsonwebtoken'
+import jwt from 'JSONWebToken'
 
-/**
- *
- * @param { { id: string } } payload
- * @param { import('jsonwebtoken').SignOptions } options
- * @returns { Promise<string> }
- */
 function getJWT(payload, options) {
     return new Promise((resolve, reject) => {
-        jsonwebtoken.sign(payload, process.env.JWT_SECRET, options, (err, jwt) => {
+        jwt.sign(payload, process.env.JWT_SECRET, options, (err, jwt) => {
             if (err) return reject(err)
             return resolve(jwt)
         })
@@ -20,6 +14,8 @@ function getJWT(payload, options) {
  * @type { import('fastify').FastifyPluginCallback }
  */
 export async function authRoutes(app) {
+    // PARTIE SIGN-UP
+
     app.post(
         '/signup', {
             schema: {
@@ -32,50 +28,47 @@ export async function authRoutes(app) {
                     required: ['email', 'password'],
                     additionalProperties: false,
                 },
-                response: {
-                    200: {
-                        type: 'object',
-                        properties: {
-                            id: { type: 'string' },
-                            success: { type: 'boolean' },
-                        },
-                        required: ['id', 'success'],
-                    },
-                },
             },
-            preValidation: [app.checkNotAuthenticated],
         },
-        async(req, reply) => {
-            const { body } = req
-            const { supabase } = app
 
-            const email = body.email.toLowerCase()
+        async(request, reply) => {
+            const email = request.body.email.toLowerCase()
+            const { password, name, nickname } = request.body
 
-            const found = await supabase
-                .from('users')
+            // permet de verifier que l'email n'est pas dans la base de donnée
+            const emailexist = await app.supabase
+                .from('users_blog')
                 .select('id')
                 .eq('email', email)
                 .single()
 
-            if (found.data) {
-                return reply.code(400).send(new Error('Email already exists'))
+            if (emailexist.data) {
+                return reply.status(400).send({ error: 'Email is already used' })
             }
 
-            const { data, error } = await supabase
+            // permet d'envoyer un nouvel user dans la base de donnée
+            const newUser = await app.supabase
                 .from('users_blog')
                 .insert({
+                    name,
+                    nickname,
                     email,
-                    password: await bcrypt.hash(body.password, 10),
+                    password: await bcrypt.hash(password, 10),
                 })
                 .single()
 
-            if (error) {
-                return reply.code(500).send(new Error(error.message))
+            if (newUser.error) {
+                return reply.status(400).send(newUser.error)
             }
 
-            return reply.send({ id: data.id, success: true })
+            reply.send({
+                success: true,
+                id: newUser.data.id,
+            })
         },
     )
+
+    // PARTIE SIGN-IN
 
     app.post(
         '/signin', {
@@ -89,43 +82,34 @@ export async function authRoutes(app) {
                     required: ['email', 'password'],
                     additionalProperties: false,
                 },
-                reponse: {
-                    200: {
-                        type: 'object',
-                        properties: {
-                            jwt: { type: 'string' },
-                        },
-                        required: ['jwt'],
-                    },
-                },
             },
-            preValidation: [app.checkNotAuthenticated],
         },
-        async(req, reply) => {
-            const { body } = req
-            const { supabase } = app
 
-            const user = await supabase
+        async(request, reply) => {
+            const email = request.body.email.toLowerCase()
+
+            //
+            const { data, error } = await app.supabase
                 .from('users_blog')
                 .select('id, password')
-                .eq('email', body.email.toLowerCase())
+                .eq('email', email)
                 .single()
 
-            if (!user.data) {
-                return reply.code(404).send(new Error('User not found'))
+            if (error) {
+                return reply.status(400).send({ error: 'User not found' })
             }
 
+            const { password } = data
             const passwordIsValid = await bcrypt.compare(
-                body.password,
-                user.data.password,
+                request.body.password,
+                password,
             )
-
             if (!passwordIsValid) {
-                return reply.code(404).send(new Error('User not found'))
+                return reply.status(404).send({ error: 'User not found' })
             }
-
-            return reply.send({
-                jwt: await getJWT({ id: user.data.id }, { expiresIn: '48h' }),
+            reply.send({
+                success: true,
+                jwt: await getJWT({ id: data.id }, { expiresIn: "24h" }),
             })
         },
     )

@@ -33,7 +33,7 @@ export async function authRoutes(app) {
 
         async(request, reply) => {
             const email = request.body.email.toLowerCase()
-            const { password, name, nickname } = request.body
+            const { password } = request.body
 
             // permet de verifier que l'email n'est pas dans la base de donnée
             const emailexist = await app.supabase
@@ -46,12 +46,10 @@ export async function authRoutes(app) {
                 return reply.status(400).send({ error: 'Email is already used' })
             }
 
-            // permet d'envoyer un nouvel user dans la base de donnée
+            // créer un nouvel user
             const newUser = await app.supabase
                 .from('users_blog')
                 .insert({
-                    name,
-                    nickname,
                     email,
                     password: await bcrypt.hash(password, 10),
                 })
@@ -64,11 +62,10 @@ export async function authRoutes(app) {
             reply.send({
                 success: true,
                 id: newUser.data.id,
+                message: "Suceed"
             })
         },
     )
-
-    // PARTIE SIGN-IN
 
     app.post(
         '/signin', {

@@ -1,76 +1,80 @@
-const categories = [
-    { id: 1, title: 'Green' },
-    { id: 2, title: 'Electrique' },
-  ]
-  
-  export async function categoriesRoutes(app) {
-    app.get('/categories', function(request, reply){
-      reply.send(categories)
+export async function categoriesRoutes(app) {
+    // Afficher toutes les catégories sur la route "categories"
+    app.get('/categories', async(request, reply) => {
+
+        const categories = await app.supabase
+            .from('categories')
+            .select()
+        reply.send(categories)
     })
-  
-    const schema = {
-      schema: {
-        response: {
-          200 : {
-            type: 'object',
-            properties: 
-            {
-              id: {type: 'integer'},
-              title: {type: 'string'},
+
+
+    app.get(
+        '/categories/:id', {
+            schema: {
+                params: { type: 'object', properties: { id: { type: 'number' } } },
             },
-          }
-        }
-      }
-    }
-  
-    app.get('/categories/:id', { schema: schema}, function(request, reply) {
-      const {id} = request.params
-      const categorie = categories[id-1]
-      
-      if (id-1 <= categories.length) {
-        reply.send(categorie)}
-  
-      else if (id-1 > categories.length){
-          reply.statusCode = 404
-          reply.send(
-            { 
-              error: `La catégorie ${id} n'éxiste pas `
-            })      
-      }
-    })
-  
-    app.post('/categories', function(request, reply)  {
-      const newTitle = request.body.title
-      const newArticle = 
-      {
-        id: categories.length+1,
-        title: newTitle
-      }
-      
-      categories.push(newArticle)
-      reply.statusCode = 201
-      reply.send({message: 'La catégorie à été ajoutée'})
-    })
-  
-    app.delete('/categories/:id', function(request, reply) {
-      const {id} = request.params
-      const find = categories.find(item => item.id === Number(id))
-  
-      if (find === undefined) {
-        reply.statusCode = 404
-        reply.send(
-          {
-            error: `La catégorie ${id} n'existe pas`
-          }
-          )}
-  
-      else {
-          categories.splice(Number(id)-1,1)
-          reply.statusCode = 200
-          reply.send(
-            { 
-              message: `Catégorie supprimée !`
+        },
+        async(request, reply) => {
+            const id = request.params.id
+            const categories = await app.supabase
+                .from('categories')
+                .select('id,title')
+                .eq('id', id)
+                .single()
+            reply.send(categories)
+            const categorie = categories.find((a) => a.id === id)
+            if (categorie) {
+                reply.send(categorie)
+                return
             }
-            )}   
-    })
-  }
+            reply.code(404).send({ error: `Article ${id} not found` })
+        },
+    )
+
+    app.post('/categories',
+        async(request, reply) => {
+            const title = request.body.title
+
+            // permet d'envoyer une nouvelle catégories dans la base de donnée
+            const newArticles = await app.supabase
+                .from('categories')
+                .insert({
+                    title,
+                })
+                .single()
+
+            if (newArticles.error) {
+                return reply.status(404).send(newArticles.error)
+            }
+
+            reply.send({
+                success: true,
+                id: newArticles.data.id,
+                message: 'Une catégorie a été ajouté'
+            })
+        }, )
+
+    app.delete(
+        '/categories/:id', {
+            schema: {
+                params: { type: 'object', properties: { id: { type: 'number' } } },
+            },
+        },
+        async(request, reply) => {
+            const id = request.params.id
+            const categories = await app.supabase
+                .from('categories')
+                .delete('id,title')
+                .eq('id', id)
+                .single()
+            reply.send({ message: 'Votre categorie a bien supprimé' })
+            const categorie = categories.find((a) => a.id === id)
+            if (categorie) {
+                reply.send({ message: 'Votre categorie a bien supprimé' })
+                return
+            }
+            reply.code(404).send({ error: `La categorie ${id} n'existe pas` })
+        },
+    )
+}

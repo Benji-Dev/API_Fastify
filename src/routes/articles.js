@@ -1,60 +1,41 @@
 export async function articlesRoutes(app) {
-    app.get('/articles', function(request, reply) {
+    // Afficher tous les articles sur la route "articles"
+    app.get('/articles', async(request, reply) => {
 
-        const articles = app.supabase
-            .from('title')
+        const articles = await app.supabase
+            .from('articles')
             .select()
         reply.send(articles)
     })
 
-    const schema = {
-        schema: {
-            response: {
-                200: {
-                    type: 'object',
-                    properties: {
-                        id: { type: 'integer' },
-                        title: { type: 'string' },
-                        description: { type: 'string' }
-                    },
-                }
+    app.get(
+        '/articles/:id', {
+            schema: {
+                params: { type: 'object', properties: { id: { type: 'number' } } },
+            },
+        },
+        async(request, reply) => {
+            const id = request.params.id
+            const articles = await app.supabase
+                .from('articles')
+                .select('id,title,description,categorie')
+                .eq('id', id)
+                .single()
+            reply.send(articles)
+            const article = articles.find((a) => a.id === id)
+            if (article) {
+                reply.send(article)
+                return
             }
-        }
-    }
-
-    app.get('/articles/:id', { schema: schema }, function(request, reply) {
-        const { id } = request.params
-        const article = articles[id - 1]
-
-        if (id - 1 <= articles.length) {
-            reply.send(article)
-        } else if (id - 1 > articles.length) {
-            reply.statusCode = 404
-            reply.send({
-                error: `Article ${id} not found`
-            })
-        }
-    })
-
-    // app.post('/articles', function(request, reply) {
-    //         const newTitle = request.body.title
-    //         const newDescription = request.body.description
-    //         const newArticle = {
-    //             id: articles.length + 1,
-    //             title: newTitle,
-    //             description: newDescription
-    //         }
-
-
-    //         articles.push(newArticle)
-    //         reply.statusCode = 201
-    //         reply.send({ message: 'L artcile à é été ajouté' })
-    //     },)
+            reply.code(404).send({ error: `Cet article ${id} n'existe pas, sorry.` })
+        },
+    )
 
     app.post('/articles',
         async(request, reply) => {
             const title = request.body.title
             const description = request.body.description
+            const categorie = request.body.categorie
 
             // permet d'envoyer un nouvel article dans la base de donnée
             const newArticles = await app.supabase
@@ -62,6 +43,7 @@ export async function articlesRoutes(app) {
                 .insert({
                     title,
                     description,
+                    categorie,
                 })
                 .single()
 
@@ -72,25 +54,30 @@ export async function articlesRoutes(app) {
             reply.send({
                 success: true,
                 id: newArticles.data.id,
-                message: 'Un article a été ajouté'
+                message: "Votre article a été ajouté"
             })
         }, )
 
-    app.delete('/articles/:id', function(request, reply) {
-        const { id } = request.params
-        const find = articles.find(item => item.id === Number(id))
-
-        if (find === undefined) {
-            reply.statusCode = 404
-            reply.send({
-                error: `L article ${id} n'existe pas`
-            })
-        } else {
-            articles.splice(Number(id) - 1, 1)
-            reply.statusCode = 200
-            reply.send({
-                message: `Article deleted`
-            })
-        }
-    })
+    app.delete(
+        '/articles/:id', {
+            schema: {
+                params: { type: 'object', properties: { id: { type: 'number' } } },
+            },
+        },
+        async(request, reply) => {
+            const id = request.params.id
+            const articles = await app.supabase
+                .from('articles')
+                .delete('id,title,description,categorie')
+                .eq('id', id)
+                .single()
+            reply.send({ message: 'Votre article a bien été supprimé' })
+            const article = articles.find((a) => a.id === id)
+            if (article) {
+                reply.send({ message: 'Votre article a bien été supprimé' })
+                return
+            }
+            reply.code(404).send({ error: `Cet article ${id} n'existe pas, sorry.` })
+        },
+    )
 }

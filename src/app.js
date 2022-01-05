@@ -18,7 +18,8 @@ const { JWT_SECRET, SUPABASE_URL, SUPABASE_KEY } = process.env
  */
 export function build(options = {}) {
     const app = fastify(options)
-    app.server.setTimeout(100)
+    app.server.setTimeout(1000)
+    app.register(helmet)
 
     app.register(jwtPlugin, { secretKey: JWT_SECRET })
     app.register(supabasePlugin, {

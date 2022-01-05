@@ -12,11 +12,11 @@ const users = [
 ]
 
 beforeAll(async() => {
-    await supabase.from('users').delete()
-    await supabase.from('users').insert(users)
+    await supabase.from('users_blog').delete()
+    await supabase.from('users_blog').insert(users)
 })
 afterAll(async() => {
-    await supabase.from('users').delete()
+    await supabase.from('users_blog').delete()
     app.close()
 })
 

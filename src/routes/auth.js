@@ -14,7 +14,6 @@ function getJWT(payload, options) {
  * @type { import('fastify').FastifyPluginCallback }
  */
 export async function authRoutes(app) {
-    // PARTIE SIGN-UP
 
     app.post(
         '/signup', {
@@ -43,7 +42,7 @@ export async function authRoutes(app) {
                 .single()
 
             if (emailexist.data) {
-                return reply.status(400).send({ error: 'Email is already used' })
+                return reply.status(400).send({ error: "Cet email est déjà utilisé, merci de trouver quelque chose de plus original, merci" })
             }
 
             // créer un nouvel user
@@ -62,7 +61,7 @@ export async function authRoutes(app) {
             reply.send({
                 success: true,
                 id: newUser.data.id,
-                message: "Suceed"
+                message: "Votre utilisateur a été créé"
             })
         },
     )
@@ -93,7 +92,7 @@ export async function authRoutes(app) {
                 .single()
 
             if (error) {
-                return reply.status(400).send({ error: 'User not found' })
+                return reply.status(400).send({ error: "Cet utilisateur n'existe pas, veuillez vérifier votre email ou mot de passe s'il vous plaît, merci." })
             }
 
             const { password } = data
@@ -102,7 +101,7 @@ export async function authRoutes(app) {
                 password,
             )
             if (!passwordIsValid) {
-                return reply.status(404).send({ error: 'User not found' })
+                return reply.status(404).send({ error: "Cet utilisateur n'existe pas, veuillez vérifier votre email ou mot de passe s'il vous plaît, merci." })
             }
             reply.send({
                 success: true,
